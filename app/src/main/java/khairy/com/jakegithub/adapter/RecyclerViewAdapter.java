@@ -19,7 +19,6 @@ public class RecyclerViewAdapter extends RecyclerView.Adapter<RecyclerView.ViewH
 
     private static final int VIEW_TYPE_LOADING = 0;
     private static final int VIEW_TYPE_NORMAL = 1;
-    private boolean isLoading = false;
     private List<GithubModel> gitList;
     private RecyclerView.ViewHolder viewHolder;
     private Boolean isEnded = false;
@@ -29,16 +28,21 @@ public class RecyclerViewAdapter extends RecyclerView.Adapter<RecyclerView.ViewH
     }
 
     public void addItems(List<GithubModel> newItems, Boolean isEnded) {
-        gitList.addAll(newItems);
-        notifyDataSetChanged();
+        gitList = newItems;
         this.isEnded = isEnded;
-        isLoading = false;
+        notifyDataSetChanged();
+
     }
 
 
     @Override
     public int getItemViewType(int position) {
-        return (position == gitList.size() - 1 && gitList.size() < 107) ? VIEW_TYPE_LOADING : VIEW_TYPE_NORMAL;
+        if (position == gitList.size() - 1 && gitList.size() < 108) {
+            return VIEW_TYPE_LOADING;
+        } else {
+            return VIEW_TYPE_NORMAL;
+
+        }
     }
 
     @NonNull
@@ -47,13 +51,12 @@ public class RecyclerViewAdapter extends RecyclerView.Adapter<RecyclerView.ViewH
 
         switch (viewType) {
             case VIEW_TYPE_NORMAL:
-                isLoading = false;
                 viewHolder = new CardViewHolder(
                         LayoutInflater.from(parent.getContext()).inflate(R.layout.list_item, parent, false));
                 return viewHolder;
 
+
             case VIEW_TYPE_LOADING:
-                isLoading = true;
                 viewHolder = new ProgressHolder(
                         LayoutInflater.from(parent.getContext()).inflate(R.layout.item_loading, parent, false));
                 return viewHolder;
@@ -72,10 +75,13 @@ public class RecyclerViewAdapter extends RecyclerView.Adapter<RecyclerView.ViewH
             ((CardViewHolder) holder).description.setText(gitList.get(position).getDescription());
             ((CardViewHolder) holder).linkUrl.setText(gitList.get(position).getHtmlUrl());
         } else {
-            if (isLoading && !isEnded) {
+
+            if (!isEnded) {
+
                 ((ProgressHolder) holder).linearLayoutLoading.setVisibility(View.VISIBLE);
             } else {
-                ((ProgressHolder) holder).linearLayoutLoading.setVisibility(View.VISIBLE);
+
+                ((ProgressHolder) holder).linearLayoutLoading.setVisibility(View.INVISIBLE);
             }
         }
     }

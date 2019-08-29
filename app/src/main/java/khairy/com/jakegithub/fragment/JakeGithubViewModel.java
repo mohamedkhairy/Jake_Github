@@ -10,12 +10,13 @@ import javax.inject.Inject;
 
 import khairy.com.jakegithub.database.entity.GithubModel;
 import khairy.com.jakegithub.repository.Repository;
-import khairy.com.jakegithub.resource.ApiResource;
+import khairy.com.jakegithub.resource.Resource;
+
 
 public class JakeGithubViewModel extends ViewModel {
 
 
-    private MediatorLiveData<ApiResource<List<GithubModel>>> githubList = new MediatorLiveData<>();
+    private MediatorLiveData<Resource<List<GithubModel>>> githubList = new MediatorLiveData<>();
     private Repository repository;
 
     @Inject
@@ -24,20 +25,27 @@ public class JakeGithubViewModel extends ViewModel {
     }
 
 
-    public LiveData<ApiResource<List<GithubModel>>> observeUser() {
+    public LiveData<Resource<List<GithubModel>>> observeUser() {
         return githubList;
     }
 
+    public void getJakeRepo(int page, Boolean refresh) {
 
-    public void getJakeRepo(int page, Boolean onError) {
 
-        githubList.setValue(ApiResource.loading(null));
-
-        LiveData<ApiResource<List<GithubModel>>> model = repository.getData(page, onError);
+        LiveData<Resource<List<GithubModel>>> model = repository.getData(page, refresh);
 
         githubList.addSource(model, githubModels -> {
             githubList.setValue(githubModels);
-            githubList.removeSource(model);
+            switch (githubModels.status) {
+                case SUCCESS: {
+                    githubList.removeSource(model);
+                    break;
+                }
+                case ERROR: {
+                    githubList.removeSource(model);
+                    break;
+                }
+            }
 
         });
 

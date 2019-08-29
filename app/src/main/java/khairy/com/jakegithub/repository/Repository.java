@@ -4,19 +4,21 @@ import android.app.Application;
 import android.content.Context;
 import android.net.ConnectivityManager;
 
+import androidx.annotation.NonNull;
+import androidx.annotation.Nullable;
 import androidx.lifecycle.LiveData;
-import androidx.lifecycle.LiveDataReactiveStreams;
 
 import java.util.List;
 
 import javax.inject.Inject;
 
-import io.reactivex.android.schedulers.AndroidSchedulers;
-import io.reactivex.schedulers.Schedulers;
 import khairy.com.jakegithub.database.dao.GithubDao;
 import khairy.com.jakegithub.database.entity.GithubModel;
 import khairy.com.jakegithub.network.JakeApi;
-import khairy.com.jakegithub.resource.ApiResource;
+import khairy.com.jakegithub.resource.Resource;
+import khairy.com.jakegithub.util.ApiResponse;
+import khairy.com.jakegithub.util.AppExecutors;
+import khairy.com.jakegithub.util.NetworkBoundResource;
 
 public class Repository {
 
@@ -32,41 +34,51 @@ public class Repository {
 
     }
 
-    public LiveData<ApiResource<List<GithubModel>>> getData(int page, Boolean onError) {
-        if (isNetworkAvailable() && !onError) {
-            return getGithubData(page);
-        } else {
-            return getDataLocal(page);
-        }
+
+    public LiveData<Resource<List<GithubModel>>> getData(final int page, final Boolean refresh) {
+        return new NetworkBoundResource<List<GithubModel>, List<GithubModel>>(AppExecutors.getInstance()) {
+            @Override
+            protected void saveCallResult(@NonNull List<GithubModel> item) {
+                GithubModel[] arr = new GithubModel[item.size()];
+                item.toArray(arr);
+                githubDao.insertAll(arr);
+            }
+
+            @Override
+            protected boolean shouldFetch(@Nullable List<GithubModel> data) {
+
+                if (isNetworkAvailable()) {
+                    return true;
+                } else {
+                    return false;
+                }
+            }
+
+            @Override
+            protected boolean shouldRefresh() {
+                return refresh;
+            }
+
+            @NonNull
+            @Override
+            protected void refreshDb() {
+                githubDao.deleteAll();
+            }
+
+            @NonNull
+            @Override
+            protected LiveData<List<GithubModel>> loadFromDb() {
+                return githubDao.getAllRepo();
+            }
+
+            @NonNull
+            @Override
+            protected LiveData<ApiResponse<List<GithubModel>>> createCall() {
+                return jakeApi.getRepo(page, 15);
+            }
+        }.getAsLiveData();
     }
 
-    private LiveData<ApiResource<List<GithubModel>>> getGithubData(int page) {
-
-
-        return LiveDataReactiveStreams.fromPublisher(
-                jakeApi.getRepo(page, 15)
-                        .observeOn(AndroidSchedulers.mainThread())
-                        .map((List<GithubModel> data) -> ApiResource.success(data, false))
-                        .onErrorReturn(msg -> ApiResource.error(msg.getMessage(), null))
-                        .doAfterNext(listApiResource -> {
-                            if (listApiResource.data != null) {
-                                githubDao.insertAll(listApiResource.data);
-                            }
-                        })
-                        .subscribeOn(Schedulers.io()));
-
-    }
-
-
-    private LiveData<ApiResource<List<GithubModel>>> getDataLocal(int page) {
-
-        return LiveDataReactiveStreams.fromPublisher(
-                githubDao.getAllRepo()
-                        .observeOn(AndroidSchedulers.mainThread())
-                        .map((List<GithubModel> data) -> ApiResource.success(data, true))
-                        .onErrorReturn(msg -> ApiResource.error(msg.getMessage(), null))
-                        .subscribeOn(Schedulers.io()));
-    }
 
     private boolean isNetworkAvailable() {
         ConnectivityManager cm = (ConnectivityManager) application.getSystemService(Context.CONNECTIVITY_SERVICE);
